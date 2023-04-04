@@ -1,0 +1,18 @@
+#define M_RESET 0
+#define M_SORT 1
+#define M_EXIT 2
+#define M_ABOUT 3
+
+#define IDR_MAINMENU 30
+
+
+IDR_MAINMENU MENU 
+{
+	POPUP "Sort"
+	{       MENUITEM "Start", M_SORT
+            MENUITEM "Reset", M_RESET
+	}
+	MENUITEM "About", M_ABOUT
+	MENUITEM "Exit", M_EXIT
+}
+                    
