@@ -1,0 +1,7 @@
+LIBRARY alglib
+EXPORTS
+	rand_arr
+	output_arr
+	bubbleSort
+	selectionSort
+	insertionSort
