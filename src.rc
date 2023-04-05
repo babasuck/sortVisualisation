@@ -4,7 +4,7 @@
 #define M_ABOUT 3
 
 #define IDR_MAINMENU 30
-
+#define F_ROADRADIO 130
 
 IDR_MAINMENU MENU 
 {

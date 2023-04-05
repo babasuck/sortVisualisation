@@ -14,6 +14,8 @@ extern __imp_rand_arr:qword
 extern __imp_output_arr:qword
 extern __imp_selectionSort:qword
 extern __imp_insertionSort:qword
+extern __imp_setHwnd:qword
+extern __imp_bubbleSort:qword
 ;-----------MENU-----------
 IDR_MAINMENU = 30
 M_RESET = 0
@@ -56,8 +58,8 @@ mov rcx, 0
 mov rdx, IDC_ARROW
 call LoadCursorA
 mov qword ptr [rbx + WNDCLASSA.hCursor], rax
-mov rcx, BLACK_PEN
-call GetStockObject
+mov rcx, 001E1E1Eh
+call CreateSolidBrush
 mov qword ptr [rbx + WNDCLASSA.hbrBackground], rax
 mov rax, offset winstr
 mov qword ptr [rbx + WNDCLASSA.lpszClassName], rax
@@ -83,6 +85,8 @@ mov qword ptr [rsp + 50h], rax		;hInstance
 mov qword ptr [rsp + 58h], 0		;lpParam
 call CreateWindowExA
 mov rbx, rax 						;hWnd
+mov rcx, rax
+call __imp_setHwnd
 ;------------------------------------
 ;Allocate MSG
 ;------------------------------------
@@ -169,6 +173,26 @@ wmCREATE:
 		;------------------------------
 		; Init Text
 		;------------------------------
+		mov rcx, offset font_str
+		call AddFontResourceA
+		mov rcx, sizeof LOGFONT
+		call malloc
+		mov roadradio_p, rax
+		mov rcx, rax
+		xor rdx, rdx
+		mov r8, sizeof LOGFONT
+		call memset
+		mov rbx, roadradio_p
+		mov dword ptr [rbx + LOGFONT.lfHeight], 20
+		mov dword ptr [rbx + LOGFONT.lfWeight], FW_NORMAL
+		add rbx, LOGFONT.lfFaceName
+		mov rcx, rbx
+		mov rdx, LF_FACESIZE
+		mov r8, offset font_str
+		call strcpy_s
+		mov rcx, roadradio_p
+		call CreateFontIndirectA
+		mov hFont, rax
 		mov rcx, offset _buffer
 		mov rdx, offset current_alg
 		mov r8, offset ins_str
@@ -183,11 +207,14 @@ wmPAINT:
 		mov hdc, rax
 		;------------------------------------
 		mov rcx, hdc
-		xor rdx, rdx
+		mov rdx, 001E1E1Eh
 		call SetBkColor
 		mov rcx, hdc
 		mov rdx, 00ffffffh
 		call SetTextColor
+		mov rcx, hdc
+		mov rdx, hFont
+		call SelectObject
 		mov rcx, hdc
 		mov rdx, 0
 		mov r8, 0
@@ -238,13 +265,13 @@ wmPAINT:
 		call EndPaint
 	jmp wmBYE
 wmLBUTTONDOWN:
-		mov rcx, p_arr
-		mov rdx, arrsize
-		call __imp_insertionSort
-		mov rcx, qword ptr [rbp + 16]
-		mov rdx, 0
-		mov r8, TRUE
-		call InvalidateRect
+	xor rcx, rcx
+	xor rdx, rdx
+	mov r8, offset SortThread
+	mov r9, 0
+	mov qword ptr [rsp + 20h], 0
+	mov qword ptr [rsp + 28h], 0
+	call CreateThread
 	jmp wmBYE
 wmRBUTTONDOWN:
 		mov rcx, p_arr
@@ -279,6 +306,15 @@ wmEXIT:
 	call ExitProcess
 ret
 Wndproc endp
+
+SortThread proc
+local demmy:qword
+sub rsp, stacksz
+mov rcx, p_arr
+mov rdx, arrsize
+call __imp_bubbleSort
+ret
+SortThread endp
 
 .data
 color dd 80FFh,82FDh,84FBh,86F9h,88F7h,8AF5h,8CF3h,8EF1h,90EFh,92EDh,94EBh,96E9h
@@ -342,11 +378,14 @@ dd 1300F4h,1200F5h,1100F6h,1000F7h,0F00F8h,0E00F9h,0D00FAh,0C00FBh,0B00FCh
 winstr db "Sort Visualisation", 0
 infostr db "Written on MASM based on alglib.dll", 13, 10, "Copyright. By Mantissa", 13, 10, "Specialy for wasm.in 04.04.2023.", 0
 current_alg db "Current sort algorithm: %s", 13, 0
-ins_str db "Insertion"
+ins_str db "Insertion", 0
+font_str db "./roadradio_bold.otf", 0
+hFont dq ?
 str_len dd ?
 p_arr dq ?
 ps dq ?
 clientRect dq ?
+roadradio_p dq ?
 _buffer db 128 dup(?)
 end
 
