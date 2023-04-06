@@ -22,6 +22,8 @@ M_RESET = 0
 M_SORT = 1
 M_EXIT = 2
 M_ABOUT = 3
+I_ICON32 = 232
+I_ICON16 = 216
 
 stacksz = 8 * 13
 arrsize = 200
@@ -39,33 +41,42 @@ sub rsp, stacksz
 ;------------------------------------
 ;Allocate WNDCLASSA
 ;------------------------------------
-mov rcx, sizeof WNDCLASSA
+mov rcx, sizeof WNDCLASSEX
 call malloc
 mov rbx, rax
 mov rcx, rax
 mov rdx, 0
-mov r8, sizeof WNDCLASSA
+mov r8, sizeof WNDCLASSEX
 call memset
 ;------------------------------------
 ;Fill WNDCLASSA struct
 ;------------------------------------
 mov rax, offset Wndproc
-mov qword ptr [rbx + WNDCLASSA.lpfnWndProc], rax
+mov qword ptr [rbx + WNDCLASSEX.lpfnWndProc], rax
+mov qword ptr [rbx + WNDCLASSEX.cbSize], sizeof WNDCLASSEX
 xor rcx, rcx
 call GetModuleHandleA
-mov qword ptr [rbx + WNDCLASSA.hInstance], rax
-mov rcx, 0
+mov qword ptr [rbx + WNDCLASSEX.hInstance], rax
+mov rcx, rax
 mov rdx, IDC_ARROW
 call LoadCursorA
-mov qword ptr [rbx + WNDCLASSA.hCursor], rax
+mov qword ptr [rbx + WNDCLASSEX.hCursor], rax
+mov rcx, qword ptr [rbx + WNDCLASSEX.hInstance]
+mov rdx, I_ICON32
+call LoadIconA
+mov qword ptr [rbx + WNDCLASSEX.hIcon], rax
+mov rcx, 0
+mov rdx, I_ICON16
+call LoadIconA
+mov qword ptr [rbx + WNDCLASSEX.hIconSm], rax
 mov rcx, BLACK_BRUSH
 call GetStockObject
-mov qword ptr [rbx + WNDCLASSA.hbrBackground], rax
+mov qword ptr [rbx + WNDCLASSEX.hbrBackground], rax
 mov rax, offset winstr
-mov qword ptr [rbx + WNDCLASSA.lpszClassName], rax
-mov qword ptr [rbx + WNDCLASSA.lpszMenuName], IDR_MAINMENU
+mov qword ptr [rbx + WNDCLASSEX.lpszClassName], rax
+mov qword ptr [rbx + WNDCLASSEX.lpszMenuName], IDR_MAINMENU
 mov rcx, rbx
-call RegisterClassA
+call RegisterClassExA 
 ;------------------------------------
 ;Create Window
 ;------------------------------------

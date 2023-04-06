@@ -5,6 +5,11 @@
 
 #define IDR_MAINMENU 30
 #define F_ROADRADIO 130
+#define I_ICON32 232
+#define I_ICON16 216
+
+I_ICON32 ICON "./icons/32.ico"
+I_ICON16 ICON "./icons/16.ico"
 
 IDR_MAINMENU MENU 
 {
