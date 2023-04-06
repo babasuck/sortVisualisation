@@ -2,13 +2,32 @@
 include win64aMin.inc 
 
 _size = 10
-
+t_delay = 5
 .code
 
 DllEntry proc hInstDLL:HINSTANCE, reason:DWORD, reserved1:DWORD
-	   mov  rax, 1
-	   ret
+local hWnd:HWND
+		;local buffer[120]:byte, hOut:qword
+		;invoke AllocConsole
+		;invoke GetStdHandle, STD_OUTPUT_HANDLE
+		;mov hOut, rax
+		;invoke WriteConsoleA, hOut, &buffer, rax, 0, 0
+		mov rax, 1
+		ret
 DllEntry Endp
+
+setHwnd proc hWnd:HWND
+local demmy:qword
+mov g_HWnd, rcx
+ret
+setHwnd endp
+
+
+reDrawHwnd proc hWnd:HWND
+local demmy:qword
+invoke InvalidateRect, rcx, 0, TRUE
+ret
+reDrawHwnd endp
 
 ; SORTS
 ;------------------------------------
@@ -34,6 +53,9 @@ i_loop:          ; rdi - i, rsi - j
 			xchg eax, ebx
 			mov dword ptr [rcx + rdi * 4], eax
 			mov dword ptr [rcx + rsi * 4], ebx
+			push rcx
+			invoke Sleep, 20
+			pop rcx
 			jmp j_loop
 @@:
 ret
@@ -44,6 +66,7 @@ insertionSort proc <5, 8, 4> arr:qword, len:dword
 xor rdi, rdi	; i
 xor rsi, rsi	; j
 xor r9, r9  	; key
+mov rbx, rcx
 i_loop:
 		inc edi
 		cmp edi, len
@@ -51,22 +74,25 @@ i_loop:
 		mov eax, edi
 		dec eax
 		mov esi, eax
-		mov r9d, dword ptr [rcx + rdi * 4]
+		mov r9d, dword ptr [rbx + rdi * 4]
 		j_loop:
+			push r9
+			invoke Sleep, 5
+			pop r9
 			cmp esi, 0
 			jl change
-			cmp r9d, dword ptr [rcx + rsi * 4]
+			cmp r9d, dword ptr [rbx + rsi * 4]
 			jnl change
 			mov eax, esi
 			inc eax
-			mov ebx, dword ptr [rcx + rsi * 4]
-			mov dword ptr [rcx + rax * 4], ebx
+			mov ecx, dword ptr [rbx + rsi * 4]
+			mov dword ptr [rbx + rax * 4], ecx
 			dec esi
 			jmp j_loop
 		change:
 			mov eax, esi
 			inc eax
-			mov dword ptr [rcx + rax * 4], r9d
+			mov dword ptr [rbx + rax * 4], r9d
 			jmp i_loop
 @@:
 ret
@@ -99,6 +125,10 @@ i_loop:
 			mov eax, dword ptr [rcx + rdi * 4]
 			mov dword ptr [rcx + r9 * 4], eax
 			mov dword ptr [rcx + rdi * 4], r8d
+			push rcx
+			invoke reDrawHwnd, g_HWnd
+			invoke Sleep, 20
+			pop rcx
 			jmp i_loop
 @@:
 ret
@@ -146,4 +176,5 @@ rand_arr endp
 .data
 fstr db " %d", 0 
 newln db 13, 10, 0
+g_HWnd dq ?
 end
