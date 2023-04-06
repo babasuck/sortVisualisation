@@ -58,8 +58,8 @@ mov rcx, 0
 mov rdx, IDC_ARROW
 call LoadCursorA
 mov qword ptr [rbx + WNDCLASSA.hCursor], rax
-mov rcx, 001E1E1Eh
-call CreateSolidBrush
+mov rcx, BLACK_BRUSH
+call GetStockObject
 mov qword ptr [rbx + WNDCLASSA.hbrBackground], rax
 mov rax, offset winstr
 mov qword ptr [rbx + WNDCLASSA.lpszClassName], rax
@@ -84,6 +84,7 @@ mov qword ptr [rsp + 48h], 0		;hMenu
 mov qword ptr [rsp + 50h], rax		;hInstance
 mov qword ptr [rsp + 58h], 0		;lpParam
 call CreateWindowExA
+mov g_HWND, rax
 mov rbx, rax 						;hWnd
 mov rcx, rax
 call __imp_setHwnd
@@ -115,7 +116,7 @@ WinMain endp
 
 
 Wndproc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM
-local hdc:qword
+local demmy:qword
 sub rsp, stacksz
 mov qword ptr [rbp + 16], rcx
 cmp edx, WM_DESTROY
@@ -198,67 +199,24 @@ wmCREATE:
 		mov r8, offset ins_str
 		call wsprintfA
 		mov str_len, eax
+		;------------------------------------
+		; START FRAME Thread
+		;------------------------------------
+		xor rcx, rcx
+		xor rdx, rdx
+		mov r8, offset drawFrame
+		mov r9, 0
+		mov qword ptr [rsp + 20h], 0
+		mov qword ptr [rsp + 28h], 0
+		call CreateThread
 		jmp wmBYE
 ;------------------------------------
 wmPAINT:
 	    mov rcx, qword ptr [rbp + 16]
 		mov rdx, ps
 		call BeginPaint
-		mov hdc, rax
 		;------------------------------------
-		mov rcx, hdc
-		mov rdx, 001E1E1Eh
-		call SetBkColor
-		mov rcx, hdc
-		mov rdx, 00ffffffh
-		call SetTextColor
-		mov rcx, hdc
-		mov rdx, hFont
-		call SelectObject
-		mov rcx, hdc
-		mov rdx, 0
-		mov r8, 0
-		mov r9, offset _buffer
-		mov eax, str_len
-		mov [rsp + 20h], rax
-		call TextOutA
-		mov rbx, p_arr
-		xor rax, rax
-		xor rsi, rsi
-			@@:
-				cmp rsi, arrsize
-				je @f
-				;------------------------------------
-				; Select Pen
-				;------------------------------------
-				lea eax, color
-				mov edi, dword ptr [rbx + rsi * 4]
-				mov ecx, dword ptr [eax + edi * 4]
-				call CreateSolidBrush
-				mov rcx, hdc
-				mov rdx, rax
-				call SelectObject
-				mov rcx, rax
-				call DeleteObject
-				;------------------------------------
-				mov rcx, hdc
-				mov rax, clientRect
-				mov eax, dword ptr [rax + RECT.bottom]
-				mov [rsp + 20h], rax
-				sub eax, dword ptr [rbx + rsi * 4]
-				mov r8, rax
-				mov rax, 5
-				mov r10, rsi 
-				inc r10
-				mul r10
-				mov r9, rax
-				mov rax, 5
-				mul rsi
-				mov rdx, rax
-				call Rectangle
-				inc rsi
-				jmp @b
-			@@:
+		
 		;------------------------------------
 		mov rcx, qword ptr [rbp + 16]
 		mov rdx, ps
@@ -267,14 +225,21 @@ wmPAINT:
 wmLBUTTONDOWN:
 	mov al, bSorting
 	test al, al
-	jnz wmBYE
-	xor rcx, rcx
-	xor rdx, rdx
+	jnz _stop
+	mov rcx, 0
+	mov rdx, 0
 	mov r8, offset SortThread
 	mov r9, 0
-	mov qword ptr [rsp + 20h], 0
+	mov dword ptr [rsp + 20h], 0
 	mov qword ptr [rsp + 28h], 0
 	call CreateThread
+	mov hSortThread, rax
+	jmp wmBYE
+_stop:
+	mov rcx, hSortThread
+	xor rdx, rdx
+	call TerminateThread
+	mov bSorting, 0
 	jmp wmBYE
 wmRBUTTONDOWN:
 	mov al, bSorting
@@ -283,10 +248,6 @@ wmRBUTTONDOWN:
 	mov rcx, p_arr
 	mov rdx, arrsize
 	call __imp_rand_arr
-	mov rcx, qword ptr [rbp + 16]
-	mov rdx, 0
-	mov r8, TRUE
-	call InvalidateRect
 	jmp wmBYE
 wmCOMMAND:
 	cmp r8d, M_EXIT
@@ -326,6 +287,113 @@ call __imp_insertionSort
 mov bSorting, 0
 ret
 SortThread endp
+
+drawFrame proc
+local hdc:qword, backDC:qword, bm:HBITMAP, tmpBrush:qword
+sub rsp, stacksz
+sub rsp, 8
+drawing:
+	mov rcx, g_HWND
+	;---------Front DC------------
+	call GetDC
+	mov hdc, rax
+	mov rcx, rax
+	;---------Back DC------------
+	call CreateCompatibleDC
+	mov backDC, rax
+	mov rcx, hdc
+	mov rbx, clientRect
+	mov edx, dword ptr [rbx + RECT.right]
+	mov r8d, dword ptr [rbx + RECT.bottom]
+	call CreateCompatibleBitmap
+	mov bm, rax
+	mov rcx, backDC
+	mov rdx, rax
+	call SelectObject
+	mov rcx, rax
+	call DeleteObject
+	;----------------------------
+	; BackGround
+	;----------------------------
+	mov rcx, 001E1E1Eh
+	call CreateSolidBrush
+	push rax
+	mov rcx, backDC
+	mov rdx, clientRect
+	mov r8, rax
+	call FillRect
+	pop rcx
+	call DeleteObject
+	;----------------------------
+	xor rax, rax
+	xor rsi, rsi
+	mov rbx, p_arr
+	@@:	
+		cmp rsi, arrsize
+		je @f
+		lea rax, color
+		mov edi, dword ptr [rbx + rsi * 4]
+		mov ecx, dword ptr [rax + rdi * 4]
+		call CreateSolidBrush
+		mov tmpBrush, rax
+		mov rcx, backDC
+		mov rdx, rax
+		call SelectObject
+		mov rcx, rax
+		call DeleteObject
+		mov rcx, backDC
+		mov rax, clientRect
+		mov eax, dword ptr [rax + RECT.bottom]
+		mov [rsp + 20h], rax
+		sub eax, dword ptr [rbx + rsi * 4]
+		mov r8, rax
+		mov rax, 5
+		mov r10, rsi 
+		inc r10
+		mul r10
+		mov r9, rax
+		mov rax, 5
+		mul rsi
+		mov rdx, rax
+		call Rectangle
+		inc rsi
+		jmp @b
+	@@:
+	mov rcx, tmpBrush
+	call DeleteObject
+	;----------------------------
+	;------Copy to Front DC------
+	;----------------------------
+	mov rcx, hdc
+	mov rdx, 0
+	mov r8, 0
+	mov rbx, clientRect
+	mov r9d, dword ptr [rbx + RECT.right]
+	mov eax, dword ptr [rbx + RECT.bottom]
+	mov dword ptr [rsp + 20h], eax
+	mov rax, backDC
+	mov qword ptr [rsp + 28h], rax
+	xor rax, rax
+	mov qword ptr [rsp + 30h], rax
+	mov qword ptr [rsp + 38h], rax
+	mov qword ptr [rsp + 40h], SRCCOPY
+	call BitBlt
+	;----------------------------
+	;-----------CleanUp----------
+	;----------------------------
+	mov rcx, g_HWND
+	mov rdx, hdc
+	call ReleaseDC
+	mov rcx, backDC
+	call DeleteDC
+	mov rcx, bm
+	call DeleteObject
+	;----------------------------
+	mov rcx, 16
+	call Sleep
+	jmp drawing
+ret
+drawFrame endp
 ;------------------------------------
 .data
 color dd 80FFh,82FDh,84FBh,86F9h,88F7h,8AF5h,8CF3h,8EF1h,90EFh,92EDh,94EBh,96E9h
@@ -387,7 +455,7 @@ dd 2500E2h,2400E3h,2300E4h,2200E5h,2100E6h,2000E7h,1F00E8h,1E00E9h,1D00EAh
 dd 1C00EBh,1B00ECh,1A00EDh,1900EEh,1800EFh,1700F0h,1600F1h,1500F2h,1400F3h
 dd 1300F4h,1200F5h,1100F6h,1000F7h,0F00F8h,0E00F9h,0D00FAh,0C00FBh,0B00FCh
 winstr db "Sort Visualisation", 0
-infostr db "Written on MASM based on alglib.dll", 13, 10, "Copyright. By Mantissa", 13, 10, "Specialy for wasm.in 04.04.2023.", 0
+infostr db "Written on MASM based on alglib.dll", 13, 10, "Copyright. By Mantissa", 13, 10, "Specialy for wasm.in 06.04.2023.", 0
 current_alg db "Current sort algorithm: %s", 13, 0
 ins_str db "Insertion", 0
 font_str db "./roadradio_bold.otf", 0
@@ -399,5 +467,7 @@ clientRect dq ?
 roadradio_p dq ?
 _buffer db 128 dup(?)
 bSorting db ?
+g_HWND dq ?
+hSortThread dq ?
 end
 
