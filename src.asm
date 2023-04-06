@@ -265,6 +265,9 @@ wmPAINT:
 		call EndPaint
 	jmp wmBYE
 wmLBUTTONDOWN:
+	mov al, bSorting
+	test al, al
+	jnz wmBYE
 	xor rcx, rcx
 	xor rdx, rdx
 	mov r8, offset SortThread
@@ -274,13 +277,16 @@ wmLBUTTONDOWN:
 	call CreateThread
 	jmp wmBYE
 wmRBUTTONDOWN:
-		mov rcx, p_arr
-		mov rdx, arrsize
-		call __imp_rand_arr
-		mov rcx, qword ptr [rbp + 16]
-		mov rdx, 0
-		mov r8, TRUE
-		call InvalidateRect
+	mov al, bSorting
+	test al, al
+	jnz wmBYE
+	mov rcx, p_arr
+	mov rdx, arrsize
+	call __imp_rand_arr
+	mov rcx, qword ptr [rbp + 16]
+	mov rdx, 0
+	mov r8, TRUE
+	call InvalidateRect
 	jmp wmBYE
 wmCOMMAND:
 	cmp r8d, M_EXIT
@@ -307,15 +313,20 @@ wmEXIT:
 ret
 Wndproc endp
 
+;------------------------------------
+; Sorting Thread routine
+;------------------------------------
 SortThread proc
 local demmy:qword
 sub rsp, stacksz
+mov bSorting, 1
 mov rcx, p_arr
 mov rdx, arrsize
-call __imp_bubbleSort
+call __imp_insertionSort
+mov bSorting, 0
 ret
 SortThread endp
-
+;------------------------------------
 .data
 color dd 80FFh,82FDh,84FBh,86F9h,88F7h,8AF5h,8CF3h,8EF1h,90EFh,92EDh,94EBh,96E9h
 dd 98E7h,9AE5h,9CE3h,9EE1h,0A0DFh,0A2DDh,0A4DBh,0A6D9h,0A8D7h,0AAD5h,0ACD3h
@@ -387,5 +398,6 @@ ps dq ?
 clientRect dq ?
 roadradio_p dq ?
 _buffer db 128 dup(?)
+bSorting db ?
 end
 
