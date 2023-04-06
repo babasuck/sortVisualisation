@@ -1,4 +1,4 @@
-# sortVisualisation
+# Sort Visualization
 ## Russian
 Программа для визуализации процесса сортировки массива, заданного случайным образом.
 ![image](https://user-images.githubusercontent.com/36266839/230512664-021b0a5c-98c7-4eb3-8103-94252f8fbb61.png)
