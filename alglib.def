@@ -5,3 +5,5 @@ EXPORTS
 	bubbleSort
 	selectionSort
 	insertionSort
+	fill_arr
+	setHwnd

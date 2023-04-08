@@ -16,6 +16,8 @@ extern __imp_selectionSort:qword
 extern __imp_insertionSort:qword
 extern __imp_setHwnd:qword
 extern __imp_bubbleSort:qword
+extern __imp_fill_arr:qword
+extern __imp_shuffle_arr:qword
 ;-----------MENU-----------
 IDR_MAINMENU = 30
 M_RESET = 0
@@ -27,16 +29,14 @@ I_ICON16 = 216
 
 stacksz = 8 * 13
 arrsize = 200
-w = 1015
-h = 600
-start_x = 0
-start_y = 5
-between = 5
+w = 1016 ; 16 pixels consume 1000 client
+h = 509  ; 59 pixels consume 450 client
 rect_w = 5
 
 .code
 
 WinMain proc
+local arr__:qword
 sub rsp, stacksz
 ;------------------------------------
 ;Allocate WNDCLASSA
@@ -127,7 +127,7 @@ WinMain endp
 
 
 Wndproc proc hWnd:HWND, uMsg:UINT, wParam:WPARAM, lParam:LPARAM
-local demmy:qword
+local hOut:qword
 sub rsp, stacksz
 mov qword ptr [rbp + 16], rcx
 cmp edx, WM_DESTROY
@@ -173,7 +173,7 @@ wmCREATE:
 		mov rdx, clientRect
 		call GetClientRect
 		;--------------------------------
-		; Init array and fill it randomly
+		; Init array and fill it 
 		;------------------------------------
 		mov rcx, arrsize
 		mov rdx, 4
@@ -181,7 +181,7 @@ wmCREATE:
 		mov p_arr, rax
 		mov rcx, rax
 		mov rdx, arrsize
-		call __imp_rand_arr
+		call __imp_fill_arr
 		;------------------------------
 		; Init Text
 		;------------------------------
@@ -237,6 +237,8 @@ wmLBUTTONDOWN:
 	mov al, bSorting
 	test al, al
 	jnz _stop
+	mov rcx, hSortThread
+	call CloseHandle
 	mov rcx, 0
 	mov rdx, 0
 	mov r8, offset SortThread
@@ -258,7 +260,7 @@ wmRBUTTONDOWN:
 	jnz wmBYE
 	mov rcx, p_arr
 	mov rdx, arrsize
-	call __imp_rand_arr
+	call __imp_shuffle_arr
 	jmp wmBYE
 wmCOMMAND:
 	cmp r8d, M_EXIT
@@ -294,13 +296,13 @@ sub rsp, stacksz
 mov bSorting, 1
 mov rcx, p_arr
 mov rdx, arrsize
-call __imp_insertionSort
+call __imp_bubbleSort
 mov bSorting, 0
 ret
 SortThread endp
 
 drawFrame proc
-local hdc:qword, backDC:qword, bm:HBITMAP, tmpBrush:qword
+local hdc:qword, backDC:qword, bm:HBITMAP, tmpBrush:qword, tmpPen:qword, borderPen:qword
 sub rsp, stacksz
 sub rsp, 8
 drawing:
@@ -335,13 +337,41 @@ drawing:
 	call FillRect
 	pop rcx
 	call DeleteObject
+	mov al, b_border
+	test al, al
+	jz @f
+	mov rcx, 0
+	mov rdx, 0
+	mov r8, 001E1E1Eh
+	call CreatePen
+	mov rcx, backDC
+	mov rdx, rax
+	call SelectObject
+	mov borderPen, rax
+	@@:
 	;----------------------------
 	xor rax, rax
 	xor rsi, rsi
 	mov rbx, p_arr
-	@@:	
+	_draw:	
 		cmp rsi, arrsize
-		je @f
+		je endDraw
+		mov al, b_border
+		test al, al
+		jnz @f
+			lea rax, color
+			mov edi, dword ptr [rbx + rsi * 4]
+			mov r8d, dword ptr [rax + rdi * 4]
+			mov rcx, PS_SOLID
+			mov rdx, 1
+			call CreatePen
+			mov tmpPen, rax
+			mov rcx, backDC
+			mov rdx, rax
+			call SelectObject
+			mov rcx, rax
+			call DeleteObject
+	@@:
 		lea rax, color
 		mov edi, dword ptr [rbx + rsi * 4]
 		mov ecx, dword ptr [rax + rdi * 4]
@@ -352,25 +382,26 @@ drawing:
 		call SelectObject
 		mov rcx, rax
 		call DeleteObject
-		mov rcx, backDC
-		mov rax, clientRect
-		mov eax, dword ptr [rax + RECT.bottom]
-		mov [rsp + 20h], rax
-		sub eax, dword ptr [rbx + rsi * 4]
-		mov r8, rax
-		mov rax, 5
-		mov r10, rsi 
-		inc r10
-		mul r10
-		mov r9, rax
-		mov rax, 5
+			mov rcx, backDC							; hdc
+		mov rax, clientRect						; ClientRect
+		mov eax, dword ptr [rax + RECT.bottom]	; h client
+			mov [rsp + 20h], rax					; h client
+		sub eax, dword ptr [rbx + rsi * 4]     ; h - arr[i]
+			mov r8d, eax
+		mov rax, rect_w
 		mul rsi
-		mov rdx, rax
+			mov rdx, rax
+		add rax, rect_w
+		mov r9, rax
 		call Rectangle
 		inc rsi
-		jmp @b
-	@@:
+		jmp _draw
+endDraw:
+	mov rcx, borderPen
+	call DeleteObject
 	mov rcx, tmpBrush
+	call DeleteObject
+	mov rcx, tmpPen
 	call DeleteObject
 	;----------------------------
 	;------Copy to Front DC------
@@ -465,6 +496,7 @@ dd 2E00D9h,2D00DAh,2C00DBh,2B00DCh,2A00DDh,2900DEh,2800DFh,2700E0h,2600E1h
 dd 2500E2h,2400E3h,2300E4h,2200E5h,2100E6h,2000E7h,1F00E8h,1E00E9h,1D00EAh
 dd 1C00EBh,1B00ECh,1A00EDh,1900EEh,1800EFh,1700F0h,1600F1h,1500F2h,1400F3h
 dd 1300F4h,1200F5h,1100F6h,1000F7h,0F00F8h,0E00F9h,0D00FAh,0C00FBh,0B00FCh
+fstr db "w=%d h=%d", 0
 winstr db "Sort Visualisation", 0
 infostr db "Written on MASM based on alglib.dll", 13, 10, "Copyright. By Mantissa", 13, 10, "Specialy for wasm.in 06.04.2023.", 0
 current_alg db "Current sort algorithm: %s", 13, 0
@@ -478,6 +510,7 @@ clientRect dq ?
 roadradio_p dq ?
 _buffer db 128 dup(?)
 bSorting db ?
+b_border db 0
 g_HWND dq ?
 hSortThread dq ?
 end
